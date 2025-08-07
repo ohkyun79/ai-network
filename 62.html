@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INNOPOWER AI 기반 네트워크 이상탐지 시스템</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; font-size: 13px; }
+    header { background: #333; color: #fff; padding: 0.6rem 1.2rem; display: flex; justify-content: space-between; align-items: center; }
+    .header-left { display: flex; align-items: center; gap: 2rem; }
+    header h1 { margin: 0; font-size: 1.2rem; }
+    .datetime { font-size: 0.7rem; color: #ccc; }
+    nav ul { list-style: none; padding: 0; margin: 0; display: flex; gap: 0.8rem; }
+    nav a { color: #fff; text-decoration: none; font-size: 13px; }
+    main { padding: 0.6rem; }
+    section { background: #fff; padding: 0.8rem; margin-bottom: 0.6rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    footer { background: #333; color: #fff; padding: 0.6rem; text-align: center; font-size: 11px; }
+    .alert { color: red; font-weight: bold; }
+    
+    .container-monitor { display: flex; gap: 1rem; }
+    .stats-container { display: flex; flex-direction: column; gap: 0.8rem; flex: 0 0 220px; }
+    .stats-table { background: #fff; padding: 0.6rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .stats-table h3, .stats-table p { margin: 0 0 0.4rem; }
+    .stats-table table { width: 100%; border-collapse: collapse; }
+    .stats-table th, .stats-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; text-align: left; font-size: 0.75rem; }
+    .grid-container { display: grid; flex: 1; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+    .chart-container { background: white; padding: 0.6rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 180px; }
+    .chart-title { font-weight: bold; margin-bottom: 0.4rem; }
+    .history-table th, .history-table td { font-size: 0.7rem; }
+    
+    #alertMsg { 
+      position: absolute; 
+      top: 0.6rem; 
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff3e0; 
+      color: #856404; 
+      padding: 0.3rem 0.6rem; 
+      border-left: 5px solid #ffc107; 
+      font-weight: bold; 
+      display: none; 
+      border-radius: 5px; 
+      z-index: 10; 
+      font-size: 0.75rem;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { background: #fff3e0; }
+      50% { background: #ffc107; }
+    }
+    
+    #about .container { display: flex; gap: 2rem; align-items: flex-start; }
+    #about .text-content { flex: 1; }
+    #about .chart-container { flex: 1; min-width: 250px; height: 250px; }
+    
+    #settings form { display: flex; flex-direction: column; gap: 1rem; max-width: 400px; margin: auto; }
+    #settings label { font-weight: bold; }
+    #settings input, #settings textarea { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+    #settings button { padding: 0.6rem; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    #settings button:hover { background: #555; }
+    
+    /* 시스템 아키텍처 다이어그램 스타일 */
+    .system-flow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+      text-align: center;
+    }
+    .system-flow-item {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-weight: bold;
+      background: #f0f0f0;
+      flex: 1;
+      transition: background-color 0.5s ease-in-out;
+    }
+    .system-flow-item.active-flow {
+        background-color: #ffc107;
+        color: #333;
+        box-shadow: 0 0 10px #ffc107;
+    }
+    .system-flow-item.alarm-flow {
+        background-color: #e74c3c;
+        color: white;
+        box-shadow: 0 0 10px #e74c3c;
+    }
+    .system-flow-arrow {
+      margin: 0 0.5rem;
+      font-size: 1.5rem;
+      color: #333;
+    }
+
+    /* 로그 테이블 스타일 수정 */
+    .logs-table-container {
+        display: flex;
+        gap: 1rem;
+    }
+    .log-table-wrapper {
+        flex: 1;
+    }
+    .log-table-wrapper h3 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+    }
+    .log-table-wrapper table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+    .log-table-wrapper th, .log-table-wrapper td { 
+        padding: 0.3rem 0.5rem;
+        text-align: left;
+        font-size: 0.75rem;
+        border-bottom: 1px solid #ddd;
+    }
+    .log-table-wrapper th {
+        background: #f0f0f0;
+    }
+    .log-table-wrapper th:not(:last-child), .log-table-wrapper td:not(:last-child) {
+        border-right: 1px solid #ddd;
+    }
+    .log-table-wrapper tr:last-child td {
+        border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>INNOPOWER AI 기반 네트워크 이상탐지 시스템 v0.1</h1>
+      <nav>
+        <ul>
+          <li><a href="#about">시스템 소개</a></li>
+          <li><a href="#monitor">실시간 모니터링</a></li>
+          <li><a href="#logs">로그/보고서</a></li>
+          <li><a href="#settings">설정</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="datetime" id="datetime"></div>
+  </header>
+
+  <main>
+    <section id="about">
+      <h2>시스템 소개</h2>
+      <div class="container">
+        <div class="text-content">
+          <p>본 시스템은 AI를 기반으로 한 실시간 네트워크 트래픽 분석 및 이상 탐지를 수행합니다.</p>
+          <ul>
+            <li>AI 기반의 **부하 예측** 및 **장애 탐지** 기능</li>
+            <li>스파이크 트래픽 시 자동 알림 및 대응</li>
+            <li>데이터 시각화 대시보드 제공</li>
+          </ul>
+
+          <h3>시스템 동작 방법</h3>
+          <div class="system-flow">
+            <div id="flow-step1" class="system-flow-item">네트워크 데이터 수집</div>
+            <div class="system-flow-arrow">→</div>
+            <div id="flow-step2" class="system-flow-item">AI 분석 및 예측</div>
+            <div class="system-flow-arrow">→</div>
+            <div id="flow-step3" class="system-flow-item">이상 탐지 및 알람</div>
+            <div class="system-flow-arrow">→</div>
+            <div id="flow-step4" class="system-flow-item">자동 조치</div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div class="chart-title">이상 감지 유형별 발생 비율</div>
+          <canvas id="anomalyTypeChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section id="monitor">
+      <h2>실시간 네트워크 모니터링</h2>
+      <p id="alertMsg">⚠️ 이상 트래픽 감지됨! 자동 대응 프로세스 실행 중...</p>
+      <div class="container-monitor">
+        <div class="stats-container">
+          <div class="stats-table chart-container">
+            <div class="chart-title">지점별 트래픽 분포</div>
+            <canvas id="distributionChart"></canvas>
+          </div>
+          <div class="stats-table">
+            <div class="chart-title">실시간 트래픽 통계</div>
+            <table>
+              <thead>
+                <tr><th>구분</th><th>현재</th><th>평균</th><th>최대</th></tr>
+              </thead>
+              <tbody id="statsBody"></tbody>
+            </table>
+          </div>
+          <div class="stats-table history-table">
+            <div class="chart-title">이상 트래픽 히스토리 (>25Mbps)</div>
+            <table>
+              <thead>
+                <tr><th>시간</th><th>구분</th><th>값</th></tr>
+              </thead>
+              <tbody id="logTable_history"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid-container">
+          <div class="chart-container"><div class="chart-title">Total Traffic (AI 예측 포함)</div><canvas id="totalTrafficChart"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k1 논현 172.16.XXX.XXX</div><canvas id="trafficChart1"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k2 서초 172.31.XXX.XXX</div><canvas id="trafficChart2"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k3 가산 172.32.XXX.XXX</div><canvas id="trafficChart3"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k4 김포 10.31.XXX.XXX</div><canvas id="trafficChart4"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k5 일산 10.32.XXX.XXX</div><canvas id="trafficChart5"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="logs">
+      <h2>로그 및 보고서</h2>
+      <div class="logs-table-container">
+          <div class="log-table-wrapper">
+              <h3>이상 탐지 로그</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>시간</th><th>IP</th><th>이상 유형</th><th>상태</th><th>분석</th><th>처리 방법</th>
+                  </tr>
+                </thead>
+                <tbody id="anomalyLogTable"></tbody>
+              </table>
+          </div>
+          <div class="log-table-wrapper">
+              <h3>예외 탐지 로그</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>시간</th><th>IP</th><th>이상 유형</th><th>상태</th><th>분석</th><th>처리 방법</th>
+                  </tr>
+                </thead>
+                <tbody id="exceptionLogTable"></tbody>
+              </table>
+          </div>
+      </div>
+    </section>
+
+    <section id="settings">
+      <h2>설정</h2>
+      <form onsubmit="saveSettings(event)">
+        <label for="threshold">이상 탐지 임계값 (Mbps):</label>
+        <input type="number" id="threshold" name="threshold" value="25" required>
+        <label for="email">알림 이메일 주소:</label>
+        <input type="email" id="email" name="email" placeholder="example@innopower.com">
+        <button type="submit">설정 저장</button>
+      </form>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Innopower Corp. All rights reserved.</p>
+    <p>문의: ohkw@innopower.co.kr</p>
+  </footer>
+
+  <script>
+    const labels = Array.from({ length: 30 }, (_, i) => `${i+1} sec`);
+    const datasets = { k1: [], k2: [], k3: [], k4: [], k5: [], total: [], predicted: [] };
+    const stats = { k1: { max: 0, avg: 0 }, k2: { max: 0, avg: 0 }, k3: { max: 0, avg: 0 }, k4: { max: 0, avg: 0 }, k5: { max: 0, avg: 0 } };
+    const alertHistory = [];
+    const anomalyTypeCounts = { '스파이크': 0, 'DDoS': 0, 'Port Scan': 0 };
+    const HISTORY_LIMIT = 10;
+    const LOG_LIMIT = 10;
+    let anomalyThreshold = 25;
+    let systemState = 'normal';
+    let stateTimer;
+
+    const colorMap = {
+      k1: '#3f51b5',
+      k2: '#4caf50',
+      k3: '#ff9800',
+      k4: '#e91e63',
+      k5: '#9c27b0',
+      total: '#607d8b'
+    };
+
+    const locationTitles = ['k1 논현', 'k2 서초', 'k3 가산', 'k4 김포', 'k5 일산'];
+    const anomalyTypes = ['스파이크', 'DDoS', 'Port Scan'];
+    
+    function getRandomSmoothMbps() {
+      const delta = Math.random() * 4 - 2;
+      return Math.max(5, Math.round(10 + delta));
+    }
+    
+    function getPredictedMbps(currentValue) {
+      const futureTrend = Math.random() * 5 - 2.5;
+      return Math.max(5, currentValue + futureTrend);
+    }
+    
+    function updateStats(name, value) {
+      const data = datasets[name];
+      stats[name].max = Math.max(stats[name].max, value);
+      stats[name].avg = (data.reduce((a, b) => a + b, 0) / data.length).toFixed(1);
+    }
+
+    function updateStatsTable() {
+      const rows = ['k1', 'k2', 'k3', 'k4', 'k5'].map(name => {
+        const current = datasets[name][datasets[name].length - 1] || 0;
+        return `<tr><td>${name}</td><td>${current} Mbps</td><td>${stats[name].avg} Mbps</td><td>${stats[name].max} Mbps</td></tr>`;
+      });
+      document.getElementById('statsBody').innerHTML = rows.join('');
+    }
+
+    function updateAlertHistoryTable() {
+      const historyBody = document.getElementById('logTable_history');
+      historyBody.innerHTML = '';
+      alertHistory.slice(-HISTORY_LIMIT).forEach(item => {
+        const row = `<tr><td>${item.time}</td><td>${item.location}</td><td>${item.value} Mbps</td></tr>`;
+        historyBody.innerHTML += row;
+      });
+    }
+
+    function addOriginalLog(time, ip, type, status) {
+      const isException = (type === '스파이크');
+      const tableId = isException ? 'exceptionLogTable' : 'anomalyLogTable';
+      const table = document.getElementById(tableId);
+      const row = document.createElement('tr');
+
+      let analysis = '';
+      let action = '';
+      if (type === 'DDoS') {
+        analysis = '분산 서비스 거부 공격';
+        action = '관리자 확인 필요';
+      } else if (type === 'Port Scan') {
+        analysis = '비정상 포트 스캐닝 감지';
+        action = '관리자 확인 필요';
+      } else {
+        analysis = '비정상 트래픽 급증';
+        action = '자동 트래픽 차단 수행';
+      }
+      
+      row.innerHTML = `
+        <td>${time}</td>
+        <td>${ip}</td>
+        <td>${type}</td>
+        <td class="alert">${status}</td>
+        <td>${analysis}</td>
+        <td>${action}</td>
+      `;
+
+      table.prepend(row);
+      if (table.children.length > LOG_LIMIT) table.removeChild(table.lastChild);
+    }
+    
+    function updateFlowchartState() {
+        document.querySelectorAll('.system-flow-item').forEach(el => {
+            el.classList.remove('active-flow', 'alarm-flow');
+        });
+        if (systemState === 'normal') {
+            document.getElementById('flow-step1').classList.add('active-flow');
+            document.getElementById('flow-step2').classList.add('active-flow');
+        } else if (systemState === 'alarm') {
+            document.getElementById('flow-step3').classList.add('alarm-flow');
+        } else if (systemState === 'action') {
+            document.getElementById('flow-step4').classList.add('active-flow');
+        }
+    }
+
+    const charts = {};
+    let distributionChart;
+    let anomalyTypeChart;
+
+    function createChart(ctx, label, key) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label,
+            data: datasets[key],
+            backgroundColor: colorMap[key] + '22',
+            borderColor: colorMap[key],
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          animation: false,
+          scales: {
+            y: { beginAtZero: true, suggestedMax: 50, title: { display: true, text: 'Mbps' } },
+            x: { title: { display: true, text: 'Time (sec)' } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    function updateCharts() {
+      const keys = ['k1', 'k2', 'k3', 'k4', 'k5'];
+      let spikeIndex = Math.random() < 0.05 ? Math.floor(Math.random() * keys.length) : -1;
+      let isAnomalyDetected = false;
+
+      const values = keys.map((k, i) => {
+        const val = (i === spikeIndex) ? Math.round(Math.random() * 10 + 20) : getRandomSmoothMbps();
+        
+        if (val > anomalyThreshold && systemState === 'normal') {
+            isAnomalyDetected = true;
+            const currentTime = new Date().toLocaleTimeString();
+            const locationName = locationTitles[i];
+            alertHistory.push({ time: currentTime, location: locationName, value: val });
+            if (alertHistory.length > HISTORY_LIMIT) {
+                alertHistory.shift();
+            }
+
+            const randomType = anomalyTypes[Math.floor(Math.random() * anomalyTypes.length)];
+            addOriginalLog(currentTime, '192.168.0.' + Math.floor(100 + Math.random() * 50), randomType, '탐지됨');
+            
+            anomalyTypeCounts[randomType]++;
+        }
+        return val;
+      });
+
+      keys.forEach((key, i) => {
+        datasets[key].push(values[i]);
+        if (datasets[key].length > labels.length) datasets[key].shift();
+        updateStats(key, values[i]);
+        charts[key].update();
+      });
+      
+      const totalVal = values.reduce((a, b) => a + b, 0);
+      datasets.total.push(totalVal);
+      if (datasets.total.length > labels.length) datasets.total.shift();
+
+      const predictedTotalVal = getPredictedMbps(totalVal);
+      datasets.predicted.push(predictedTotalVal);
+      if (datasets.predicted.length > labels.length) datasets.predicted.shift();
+      charts.total.update();
+
+      distributionChart.data.datasets[0].data = values;
+      distributionChart.update();
+      
+      anomalyTypeChart.data.datasets[0].data = Object.values(anomalyTypeCounts);
+      anomalyTypeChart.update();
+
+      updateStatsTable();
+      updateAlertHistoryTable();
+
+      if (systemState === 'normal' && isAnomalyDetected) {
+          systemState = 'alarm';
+          document.getElementById('alertMsg').style.display = 'block';
+          clearTimeout(stateTimer);
+          stateTimer = setTimeout(() => {
+              systemState = 'action';
+              clearTimeout(stateTimer);
+              stateTimer = setTimeout(() => {
+                  systemState = 'normal';
+                  document.getElementById('alertMsg').style.display = 'none';
+              }, 10000);
+          }, 10000);
+      }
+      updateFlowchartState();
+    }
+
+    function saveSettings(event) {
+      event.preventDefault();
+      const newThreshold = document.getElementById('threshold').value;
+      const email = document.getElementById('email').value;
+      
+      anomalyThreshold = newThreshold;
+      alert(`설정이 저장되었습니다.\n임계값: ${newThreshold} Mbps\n알림 이메일: ${email || '설정되지 않음'}`);
+      
+      document.querySelector('#logTable_history .chart-title').textContent = `이상 트래픽 히스토리 (> ${newThreshold}Mbps)`;
+    }
+
+    function init() {
+      charts.k1 = createChart(document.getElementById('trafficChart1'), 'k1 논현', 'k1');
+      charts.k2 = createChart(document.getElementById('trafficChart2'), 'k2 서초', 'k2');
+      charts.k3 = createChart(document.getElementById('trafficChart3'), 'k3 가산', 'k3');
+      charts.k4 = createChart(document.getElementById('trafficChart4'), 'k4 김포', 'k4');
+      charts.k5 = createChart(document.getElementById('trafficChart5'), 'k5 일산', 'k5');
+      
+      charts.total = new Chart(document.getElementById('totalTrafficChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: '실시간 트래픽',
+            data: datasets.total,
+            backgroundColor: colorMap.total + '22',
+            borderColor: colorMap.total,
+            fill: true,
+            tension: 0.3
+          }, {
+            label: '예측 트래픽',
+            data: datasets.predicted,
+            borderColor: '#ffc107',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.3
+          }]
+        },
+        options: {
+          animation: false,
+          scales: {
+            y: { beginAtZero: true, suggestedMax: 80, title: { display: true, text: 'Mbps' } },
+            x: { title: { display: true, text: 'Time (sec)' } }
+          },
+          plugins: { legend: { display: true } }
+        }
+      });
+      
+      distributionChart = new Chart(document.getElementById('distributionChart').getContext('2d'), {
+        type: 'pie',
+        data: {
+          labels: locationTitles,
+          datasets: [{
+            data: [0, 0, 0, 0, 0],
+            backgroundColor: [colorMap.k1, colorMap.k2, colorMap.k3, colorMap.k4, colorMap.k5],
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right' }
+          }
+        }
+      });
+
+      anomalyTypeChart = new Chart(document.getElementById('anomalyTypeChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(anomalyTypeCounts),
+          datasets: [{
+            label: '이상 감지 횟수',
+            data: Object.values(anomalyTypeCounts),
+            backgroundColor: ['#ff9800', '#e91e63', '#3f51b5']
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { 
+              beginAtZero: true, 
+              title: { display: true, text: '발생 횟수' },
+              ticks: { stepSize: 1 } 
+            },
+            y: { title: { display: true, text: '이상 유형' } }
+          }
+        }
+      });
+
+      setInterval(updateCharts, 1000);
+      document.getElementById('datetime').textContent = new Date().toLocaleString();
+      
+      updateFlowchartState();
+    }
+    window.onload = init;
+  </script>
+</body>
+</html>
