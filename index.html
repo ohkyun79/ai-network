@@ -188,7 +188,7 @@
             <canvas id="distributionChart"></canvas>
           </div>
           <div class="stats-table">
-            <div class="chart-title">실시간 트래픽 통계</div>
+            <div class="chart-title">실시간 트래픽 통계 <span id="stats-time" style="font-size: 0.8em; color: #666;"></span></div>
             <table>
               <thead>
                 <tr><th>구분</th><th>현재</th><th>평균</th><th>최대</th></tr>
@@ -304,11 +304,24 @@
     }
 
     function updateStatsTable() {
-      const rows = ['k1', 'k2', 'k3', 'k4', 'k5'].map(name => {
+      const keys = ['k1', 'k2', 'k3', 'k4', 'k5'];
+      let totalCurrent = 0;
+      let totalAvg = 0;
+      let totalMax = 0;
+
+      const rows = keys.map(name => {
         const current = datasets[name][datasets[name].length - 1] || 0;
+        totalCurrent += current;
+        totalAvg += parseFloat(stats[name].avg);
+        totalMax += stats[name].max;
         return `<tr><td>${name}</td><td>${current} Mbps</td><td>${stats[name].avg} Mbps</td><td>${stats[name].max} Mbps</td></tr>`;
       });
+
+      const totalRow = `<tr><td><b>Total</b></td><td><b>${totalCurrent} Mbps</b></td><td><b>${totalAvg.toFixed(1)} Mbps</b></td><td><b>${totalMax} Mbps</b></td></tr>`;
+      rows.unshift(totalRow);
+
       document.getElementById('statsBody').innerHTML = rows.join('');
+      document.getElementById('stats-time').textContent = `- ${new Date().toLocaleTimeString()} data`;
     }
 
     function updateAlertHistoryTable() {
