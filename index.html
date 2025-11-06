@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>INNOPOWER AI 기반 네트워크 이상탐지 시스템</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; font-size: 13px; }
     header { background: #333; color: #fff; padding: 0.6rem 1.2rem; display: flex; justify-content: space-between; align-items: center; }
@@ -133,7 +135,7 @@
 <body>
   <header>
     <div class="header-left">
-      <h1>INNOPOWER AI 기반 네트워크 이상탐지 시스템 v0.1</h1>
+      <h1>INNOPOWER AI 기반 네트워크 이상탐지 시스템 v0.12a</h1>
       <nav>
         <ul>
           <li><a href="#about">시스템 소개</a></li>
@@ -261,6 +263,7 @@
   </footer>
 
   <script>
+    Chart.register(ChartDataLabels);
     const labels = Array.from({ length: 30 }, (_, i) => `${i+1} sec`);
     const datasets = { k1: [], k2: [], k3: [], k4: [], k5: [], total: [], predicted: [] };
     const stats = { k1: { max: 0, avg: 0 }, k2: { max: 0, avg: 0 }, k3: { max: 0, avg: 0 }, k4: { max: 0, avg: 0 }, k5: { max: 0, avg: 0 } };
@@ -331,9 +334,9 @@
       } else if (type === 'Port Scan') {
         analysis = '비정상 포트 스캐닝 감지';
         action = '관리자 확인 필요';
-      } else {
-        analysis = '비정상 트래픽 급증';
-        action = '자동 트래픽 차단 수행';
+      } else { // This is the '스파이크' case
+        analysis = '예정된 작업';
+        action = '예외 처리';
       }
       
       row.innerHTML = `
@@ -387,7 +390,7 @@
             y: { beginAtZero: true, suggestedMax: 50, title: { display: true, text: 'Mbps' } },
             x: { title: { display: true, text: 'Time (sec)' } }
           },
-          plugins: { legend: { display: false } }
+          plugins: { legend: { display: false }, datalabels: { display: false } }
         }
       });
     }
@@ -433,7 +436,9 @@
       if (datasets.predicted.length > labels.length) datasets.predicted.shift();
       charts.total.update();
 
-      distributionChart.data.datasets[0].data = values;
+      const totalValForDist = values.reduce((a, b) => a + b, 0);
+      const percentageValues = values.map(v => totalValForDist > 0 ? (v / totalValForDist) * 100 : 0);
+      distributionChart.data.datasets[0].data = percentageValues;
       distributionChart.update();
       
       anomalyTypeChart.data.datasets[0].data = Object.values(anomalyTypeCounts);
@@ -502,7 +507,7 @@
             y: { beginAtZero: true, suggestedMax: 80, title: { display: true, text: 'Mbps' } },
             x: { title: { display: true, text: 'Time (sec)' } }
           },
-          plugins: { legend: { display: true } }
+          plugins: { legend: { display: true }, datalabels: { display: false } }
         }
       });
       
@@ -520,7 +525,31 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'right' }
+            legend: { position: 'right' },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        if (context.parsed !== null) {
+                            label += context.parsed.toFixed(2) + '%';
+                        }
+                        return label;
+                    }
+                }
+            },
+            datalabels: {
+              display: true,
+              formatter: (value, ctx) => {
+                if (value < 5) {
+                  return '';
+                }
+                return value.toFixed(2) + '%';
+              },
+              color: '#fff',
+            }
           }
         }
       });
