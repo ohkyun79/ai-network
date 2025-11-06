@@ -135,7 +135,7 @@
 <body>
   <header>
     <div class="header-left">
-      <h1>INNOPOWER AI 기반 네트워크 이상탐지 시스템 v0.12a</h1>
+      <h1>INNOPOWER AI 기반 네트워크 이상탐지 시스템 v0.13a</h1>
       <nav>
         <ul>
           <li><a href="#about">시스템 소개</a></li>
@@ -171,7 +171,11 @@
             <div id="flow-step4" class="system-flow-item">자동 조치</div>
           </div>
         </div>
-        <div class="chart-container">
+        <div class="stats-table">
+            <div class="chart-title">Ai 분석 및 예측 확률</div>
+            <div id="prediction-probability" style="font-size: 2rem; text-align: center; padding: 1rem;">-</div>
+        </div>
+        <div class="chart-container" style="flex: 0.5;">
           <div class="chart-title">이상 감지 유형별 발생 비율</div>
           <canvas id="anomalyTypeChart"></canvas>
         </div>
@@ -181,12 +185,16 @@
     <section id="monitor">
       <h2>실시간 네트워크 모니터링</h2>
       <p id="alertMsg">⚠️ 이상 트래픽 감지됨! 자동 대응 프로세스 실행 중...</p>
-      <div class="container-monitor">
-        <div class="stats-container">
-          <div class="stats-table chart-container">
-            <div class="chart-title">지점별 트래픽 분포</div>
-            <canvas id="distributionChart"></canvas>
-          </div>
+      
+      <!-- Top part: 2x2 grid -->
+      <div style="display: grid; grid-template-columns: 3fr 7fr; grid-template-rows: auto auto; gap: 0.8rem;">
+          <!-- Top-left -->
+          <div class="stats-table chart-container"><div class="chart-title">지점별 트래픽 분포</div><canvas id="distributionChart"></canvas></div>
+
+          <!-- Top-right and Bottom-right -->
+          <div class="chart-container" style="grid-row: span 2; height: 380px;"><div class="chart-title">Total Traffic (AI 예측 포함)</div><canvas id="totalTrafficChart"></canvas></div>
+          
+          <!-- Bottom-left -->
           <div class="stats-table">
             <div class="chart-title">실시간 트래픽 통계 <span id="stats-time" style="font-size: 0.8em; color: #666;"></span></div>
             <table>
@@ -196,6 +204,21 @@
               <tbody id="statsBody"></tbody>
             </table>
           </div>
+      </div>
+
+      <!-- Bottom part: 5 k-series charts -->
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; margin-top: 0.8rem;">
+          <div class="chart-container"><div class="chart-title">k1 논현 172.16.XXX.XXX</div><canvas id="trafficChart1"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k2 서초 172.31.XXX.XXX</div><canvas id="trafficChart2"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k3 가산 172.32.XXX.XXX</div><canvas id="trafficChart3"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k4 김포 10.31.XXX.XXX</div><canvas id="trafficChart4"></canvas></div>
+          <div class="chart-container"><div class="chart-title">k5 일산 10.32.XXX.XXX</div><canvas id="trafficChart5"></canvas></div>
+      </div>
+    </section>
+
+    <section id="logs">
+      <h2>로그 및 보고서</h2>
+      <div class="logs-table-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
           <div class="stats-table history-table">
             <div class="chart-title">이상 트래픽 히스토리 (>25Mbps)</div>
             <table>
@@ -205,21 +228,6 @@
               <tbody id="logTable_history"></tbody>
             </table>
           </div>
-        </div>
-        <div class="grid-container">
-          <div class="chart-container"><div class="chart-title">Total Traffic (AI 예측 포함)</div><canvas id="totalTrafficChart"></canvas></div>
-          <div class="chart-container"><div class="chart-title">k1 논현 172.16.XXX.XXX</div><canvas id="trafficChart1"></canvas></div>
-          <div class="chart-container"><div class="chart-title">k2 서초 172.31.XXX.XXX</div><canvas id="trafficChart2"></canvas></div>
-          <div class="chart-container"><div class="chart-title">k3 가산 172.32.XXX.XXX</div><canvas id="trafficChart3"></canvas></div>
-          <div class="chart-container"><div class="chart-title">k4 김포 10.31.XXX.XXX</div><canvas id="trafficChart4"></canvas></div>
-          <div class="chart-container"><div class="chart-title">k5 일산 10.32.XXX.XXX</div><canvas id="trafficChart5"></canvas></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="logs">
-      <h2>로그 및 보고서</h2>
-      <div class="logs-table-container">
           <div class="log-table-wrapper">
               <h3>이상 탐지 로그</h3>
               <table>
@@ -268,7 +276,7 @@
     const datasets = { k1: [], k2: [], k3: [], k4: [], k5: [], total: [], predicted: [] };
     const stats = { k1: { max: 0, avg: 0 }, k2: { max: 0, avg: 0 }, k3: { max: 0, avg: 0 }, k4: { max: 0, avg: 0 }, k5: { max: 0, avg: 0 } };
     const alertHistory = [];
-    const anomalyTypeCounts = { '스파이크': 0, 'DDoS': 0, 'Port Scan': 0 };
+    const anomalyTypeCounts = { '스파이크': 0, 'Port Scan': 0, 'DDoS': 0 };
     const HISTORY_LIMIT = 10;
     const LOG_LIMIT = 10;
     let anomalyThreshold = 25;
@@ -285,7 +293,7 @@
     };
 
     const locationTitles = ['k1 논현', 'k2 서초', 'k3 가산', 'k4 김포', 'k5 일산'];
-    const anomalyTypes = ['스파이크', 'DDoS', 'Port Scan'];
+    const anomalyTypes = ['스파이크', 'Port Scan', 'DDoS'];
     
     function getRandomSmoothMbps() {
       const delta = Math.random() * 4 - 2;
@@ -317,7 +325,7 @@
         return `<tr><td>${name}</td><td>${current} Mbps</td><td>${stats[name].avg} Mbps</td><td>${stats[name].max} Mbps</td></tr>`;
       });
 
-      const totalRow = `<tr><td><b>Total</b></td><td><b>${totalCurrent} Mbps</b></td><td><b>${totalAvg.toFixed(1)} Mbps</b></td><td><b>${totalMax} Mbps</b></td></tr>`;
+      const totalRow = `<tr style="background-color: #f2f2f2;"><td><b>Total</b></td><td><b>${totalCurrent} Mbps</b></td><td><b>${totalAvg.toFixed(1)} Mbps</b></td><td><b>${totalMax} Mbps</b></td></tr>`;
       rows.unshift(totalRow);
 
       document.getElementById('statsBody').innerHTML = rows.join('');
@@ -457,6 +465,14 @@
       anomalyTypeChart.data.datasets[0].data = Object.values(anomalyTypeCounts);
       anomalyTypeChart.update();
 
+      let probability = 0;
+      if (totalVal > 0) {
+        probability = 100 - (Math.abs(totalVal - predictedTotalVal) / totalVal) * 100;
+      } else if (predictedTotalVal === 0) {
+        probability = 100;
+      }
+      document.getElementById('prediction-probability').textContent = `${probability.toFixed(2)}%`;
+
       updateStatsTable();
       updateAlertHistoryTable();
 
@@ -574,21 +590,26 @@
           datasets: [{
             label: '이상 감지 횟수',
             data: Object.values(anomalyTypeCounts),
-            backgroundColor: ['#ff9800', '#e91e63', '#3f51b5']
+            backgroundColor: ['#66CDAA', '#FFA500', '#FF6347']
           }]
         },
         options: {
-          indexAxis: 'y',
+          indexAxis: 'x',
           animation: false,
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { 
+            y: { 
               beginAtZero: true, 
               title: { display: true, text: '발생 횟수' },
               ticks: { stepSize: 1 } 
             },
-            y: { title: { display: true, text: '이상 유형' } }
+            x: { title: { display: true, text: '이상 유형' } }
+          },
+          plugins: {
+            datalabels: {
+              display: false
+            }
           }
         }
       });
